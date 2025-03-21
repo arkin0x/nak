@@ -188,9 +188,6 @@ var encode = &cli.Command{
 					}
 
 					kind := c.Int("kind")
-					if kind < 30000 || kind >= 40000 {
-						return fmt.Errorf("kind must be between 30000 and 39999, got %d", kind)
-					}
 
 					if d == "" {
 						d = c.String("identifier")
