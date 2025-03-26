@@ -1,4 +1,4 @@
-module github.com/fiatjaf/nak
+module github.com/arkin0x/nak
 
 go 1.24.1
 
