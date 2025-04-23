@@ -2,12 +2,25 @@ package main
 
 import (
 	"context"
+	"encoding/json" // Keep this import
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/urfave/cli/v3"
 )
+
+type NostrEvent struct {
+	ID        string     `json:"id"`
+	PubKey    string     `json:"pubkey"`
+	Kind      int        `json:"kind"`
+	Tags      [][]string `json:"tags"`
+	Content   string     `json:"content"`
+	Sig       string     `json:"sig"`
+	CreatedAt int64      `json:"created_at"`
+}
 
 var encode = &cli.Command{
 	Name:  "encode",
@@ -182,30 +195,45 @@ var encode = &cli.Command{
 			DisableSliceFlagSeparator: true,
 			Action: func(ctx context.Context, c *cli.Command) error {
 				for d := range getStdinLinesOrBlank() {
-					pubkey := c.String("pubkey")
-					if ok := nostr.IsValidPublicKey(pubkey); !ok {
-						return fmt.Errorf("invalid 'pubkey'")
-					}
-
-					kind := c.Int("kind")
-
 					if d == "" {
-						d = c.String("identifier")
-						if d == "" {
-							ctx = lineProcessingError(ctx, "\"d\" tag identifier can't be empty")
-							continue
+						event, err := ioutil.ReadAll(os.Stdin)
+						if err != nil {
+							return fmt.Errorf("failed to read input: %w", err)
 						}
-					}
+						var nostrEvent NostrEvent
+						if err := json.Unmarshal(event, &nostrEvent); err != nil {
+							return fmt.Errorf("failed to unmarshal JSON: %w", err)
+						}
 
-					relays := c.StringSlice("relay")
-					if err := normalizeAndValidateRelayURLs(relays); err != nil {
-						return err
-					}
+						d = ""
+						for _, tag := range nostrEvent.Tags {
+							if tag[0] == "d" {
+								d = tag[1]
+								break
+							}
+						}
 
-					if npub, err := nip19.EncodeEntity(pubkey, int(kind), d, relays); err == nil {
-						stdout(npub)
-					} else {
-						return err
+						if d == "" {
+							return fmt.Errorf("\"d\" tag identifier can't be empty")
+						}
+
+						pubkey := nostrEvent.PubKey
+						if ok := nostr.IsValidPublicKey(pubkey); !ok {
+							return fmt.Errorf("invalid 'pubkey'")
+						}
+
+						kind := nostrEvent.Kind
+
+						relays := c.StringSlice("relay")
+						if err := normalizeAndValidateRelayURLs(relays); err != nil {
+							return err
+						}
+
+						if npub, err := nip19.EncodeEntity(pubkey, kind, d, relays); err == nil {
+							stdout(npub)
+						} else {
+							return err
+						}
 					}
 				}
 
