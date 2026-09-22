@@ -1,5 +1,7 @@
 # nak, the nostr army knife
 
+> this is a fork of [fiatjaf/nak](https://github.com/fiatjaf/nak) that accepts partial event ids in `-i`, see [query by a partial event id](#query-by-a-partial-event-id). it pins a companion fork of the `nostr` library through a `replace` directive, so install it with `git clone` + `go build` (or `go install .` inside the clone), not with `go install ...@latest`.
+
 install with this one-liner:
 
 ```sh
@@ -86,6 +88,20 @@ publishing to wss://public.relaying.io... success.
 publishing to wss://eden.nostr.land... failed: msg: blocked: not on white-list
 publishing to wss://atlas.nostr.land... failed: msg: blocked: not on white-list
 publishing to wss://relayable.org... success.
+```
+
+### query by a partial event id
+`-i` also takes a partial id: an even number of hex characters, fewer than 64. it travels as-is inside the normal `ids` array and matches every event whose id starts with it. whether that works is up to the relay: prefix matching was removed from NIP-01, so as of 2026-09 strfry relays (damus, nos.lol, primal, nostr.wine, most of the big ones) answer `CLOSED: filter item too small` and khatru relays just return nothing. `nak serve` honors it, and so does anything built on this fork's `nostr` library.
+```shell
+~> nak serve &
+~> nak event --sec 01 -c 'hello' ws://localhost:10547 | jq -r .id
+161e6f83795f805301871ab2a3c0b18c4033822b4aebfc4bcc2c034b7b4de7f2
+~> nak req -i 161e6f83 ws://localhost:10547 | jq -r .content
+hello
+~> nak count -i 161e6f83 ws://localhost:10547
+ws://localhost:10547: 1
+~> nak req -i 161e6f83 -i 7aa0b2 --bare
+{"ids":["161e6f83","7aa0b2"]}
 ```
 
 ### verify if an event is good

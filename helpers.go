@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"iter"
@@ -543,6 +544,26 @@ func parseEventID(value string) (nostr.ID, error) {
 	}
 
 	return nostr.ID{}, fmt.Errorf("invalid event id (\"%s\"): expected hex, note, or nevent", value)
+}
+
+// parseEventIDOrPrefix accepts everything parseEventID accepts plus a partial event id: fewer than 64
+// hex characters, in whole bytes (even length). A full id comes back as id; a partial one comes back
+// lowercased as prefix, ready for nostr.Filter.IDPrefixes. Exactly one of the two is set on success.
+func parseEventIDOrPrefix(value string) (id nostr.ID, prefix string, err error) {
+	if id, err := parseEventID(value); err == nil {
+		return id, "", nil
+	}
+
+	prefix = strings.ToLower(strings.TrimPrefix(value, "nostr:"))
+	if _, err := hex.DecodeString(prefix); err == hex.ErrLength {
+		return nostr.ID{}, "", fmt.Errorf(
+			"partial event id (\"%s\") has an odd number of hex characters, but relays match whole bytes: use \"%s\"",
+			value, prefix[:len(prefix)-1])
+	} else if err != nil || len(prefix) == 0 || len(prefix) >= 64 {
+		return nostr.ID{}, "", fmt.Errorf("invalid event id (\"%s\"): expected hex, note, nevent or a partial hex id", value)
+	}
+
+	return nostr.ID{}, prefix, nil
 }
 
 func decodeTagValue(value string, letter rune) string {

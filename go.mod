@@ -113,3 +113,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )
+
+replace fiatjaf.com/nostr => github.com/arkin0x/nostrlib v0.0.0-20260922020654-1edd96af14b1

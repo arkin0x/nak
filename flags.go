@@ -323,19 +323,6 @@ func getID(cmd *cli.Command, name string) nostr.ID {
 //
 
 type (
-	idSlice     = cli.SliceBase[nostr.ID, struct{}, idValue]
-	IDSliceFlag = cli.FlagBase[[]nostr.ID, struct{}, idSlice]
-)
-
-func getIDSlice(cmd *cli.Command, name string) []nostr.ID {
-	return cmd.Value(name).([]nostr.ID)
-}
-
-//
-//
-//
-
-type (
 	KindFlag = cli.FlagBase[nostr.Kind, struct{}, kindValue]
 )
 

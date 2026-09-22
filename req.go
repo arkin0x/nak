@@ -36,6 +36,11 @@ example:
 		nak req -k 1 -l 15 wss://nostr.wine wss://nostr-pub.wellorder.net
 		nak req -k 0 -a 3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d wss://nos.lol | jq '.content | fromjson | .name'
 
+a partial event id (an even number of hex characters, fewer than 64) is sent inside "ids" as-is and matches every event whose id starts with it, on relays that still support prefix matching (strfry does):
+
+example:
+		nak req -i e2097873 wss://relay.damus.io
+
 it can also take a filter from stdin, optionally modify it with flags and send it to specific relays (or just print it).
 
 example:
@@ -452,10 +457,10 @@ var reqFilterFlags = []cli.Flag{
 		Usage:    "only accept events from these authors",
 		Category: CATEGORY_FILTER_ATTRIBUTES,
 	},
-	&IDSliceFlag{
+	&cli.StringSliceFlag{
 		Name:     "id",
 		Aliases:  []string{"i"},
-		Usage:    "only accept events with these ids",
+		Usage:    "only accept events with these ids; a partial id (even number of hex chars, fewer than 64) matches every id starting with it on relays that support prefix matching, like strfry",
 		Category: CATEGORY_FILTER_ATTRIBUTES,
 	},
 	&KindSliceFlag{
@@ -549,8 +554,16 @@ func applyFlagsToFilter(c *cli.Command, filter *nostr.Filter) error {
 		}
 	}
 
-	if ids := getIDSlice(c, "id"); len(ids) > 0 {
-		filter.IDs = append(filter.IDs, ids...)
+	for _, value := range c.StringSlice("id") {
+		id, prefix, err := parseEventIDOrPrefix(value)
+		if err != nil {
+			return err
+		}
+		if prefix != "" {
+			filter.IDPrefixes = append(filter.IDPrefixes, prefix)
+		} else {
+			filter.IDs = append(filter.IDs, id)
+		}
 	}
 	if kinds := getKindSlice(c, "kind"); len(kinds) > 0 {
 		filter.Kinds = append(filter.Kinds, kinds...)

@@ -254,3 +254,38 @@ func TestEventJQ(t *testing.T) {
 	num := call(t, "nak event --ts 1699485669 -k 7 --jq .kind --jq-raw")
 	require.Equal(t, "7", num)
 }
+
+func TestParseEventIDOrPrefix(t *testing.T) {
+	full := "36d88cf5fcc449f2390a424907023eda7a74278120eebab8d02797cd92e7e29c"
+
+	id, prefix, err := parseEventIDOrPrefix(full)
+	require.NoError(t, err)
+	require.Equal(t, "", prefix)
+	require.Equal(t, full, id.Hex())
+
+	_, prefix, err = parseEventIDOrPrefix("nostr:8B1c3c94")
+	require.NoError(t, err)
+	require.Equal(t, "8b1c3c94", prefix, "partial ids are lowercased and lose the nostr: prefix")
+
+	_, _, err = parseEventIDOrPrefix("8b1c3c9")
+	require.ErrorContains(t, err, "odd number of hex characters")
+	require.ErrorContains(t, err, `use "8b1c3c"`)
+
+	for _, bad := range []string{"8b1c3czz", "", full + "ab", "note1invalid"} {
+		_, _, err = parseEventIDOrPrefix(bad)
+		require.ErrorContains(t, err, "invalid event id", bad)
+	}
+}
+
+func TestReqPartialIDs(t *testing.T) {
+	// flags persist between app.Run calls in this process (see the note at the top), so only look at "ids"
+	output := call(t, "nak req -i 8B1c3c94 -i 36d88cf5fcc449f2390a424907023eda7a74278120eebab8d02797cd92e7e29c --bare")
+	var filter map[string]any
+	require.NoError(t, stdjson.Unmarshal([]byte(output), &filter))
+	require.Equal(t, []any{"36d88cf5fcc449f2390a424907023eda7a74278120eebab8d02797cd92e7e29c", "8b1c3c94"}, filter["ids"],
+		"partial ids ride in the ids array after the full ones")
+
+	// an odd-length partial id is refused. keep this last: the bad value sticks to the global --id flag
+	err := app.Run(t.Context(), strings.Split("nak req -i 8b1c3c9 --bare", " "))
+	require.ErrorContains(t, err, "odd number of hex characters")
+}

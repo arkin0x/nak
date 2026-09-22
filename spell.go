@@ -322,11 +322,15 @@ func buildSpellReq(ctx context.Context, c *cli.Command, tags nostr.Tags) (nostr.
 
 		case "ids":
 			for i := 1; i < len(tag); i++ {
-				id, err := nostr.IDFromHex(tag[i])
+				id, prefix, err := parseEventIDOrPrefix(tag[i])
 				if err != nil {
-					return nostr.Filter{}, fmt.Errorf("invalid  id '%s' in 'authors': %w", tag[i], err)
+					return nostr.Filter{}, fmt.Errorf("invalid id '%s' in 'ids': %w", tag[i], err)
 				}
-				filter.IDs = append(filter.IDs, id)
+				if prefix != "" {
+					filter.IDPrefixes = append(filter.IDPrefixes, prefix)
+				} else {
+					filter.IDs = append(filter.IDs, id)
+				}
 			}
 
 		case "tag":
@@ -488,12 +492,13 @@ func createSpellEvent(ctx context.Context, filter nostr.Filter, kr nostr.Keyer) 
 		spell.Tags = append(spell.Tags, authorsTag)
 	}
 
-	// add ids
-	if len(filter.IDs) > 0 {
+	// add ids, full ones first and then partial ones
+	if len(filter.IDs) > 0 || len(filter.IDPrefixes) > 0 {
 		idsTag := nostr.Tag{"ids"}
 		for _, id := range filter.IDs {
 			idsTag = append(idsTag, id.Hex())
 		}
+		idsTag = append(idsTag, filter.IDPrefixes...)
 		spell.Tags = append(spell.Tags, idsTag)
 	}
 
